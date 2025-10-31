@@ -45,7 +45,6 @@ int filaVazia(Fila *f) {
     return f->total == 0;
 }
 
-// Renomeado de 'inserir' para 'enfileirar'
 void enfileirar(Fila *f, Peca p) {
     if (filaCheia(f)) {
         printf("Fila cheia. Não é possível inserir.\n");
@@ -56,7 +55,6 @@ void enfileirar(Fila *f, Peca p) {
     f->total++;
 }
 
-// Renomeado de 'remover' para 'desenfileirar'
 int desenfileirar(Fila *f, Peca *p) {
     if (filaVazia(f)) {
         printf("Fila vazia. Não é possível remover.\n");
@@ -97,7 +95,6 @@ int pilhaCheia(Pilha *p) {
     return p->topo == MAX_PILHA - 1; // Usa a constante da pilha
 }
 
-// Renomeado de 'inserir' para 'empilhar'
 void empilhar(Pilha *p, Peca nova) {
     if (pilhaCheia(p)) {
         printf("Pilha de reserva cheia. Não é possível inserir.\n");
@@ -107,7 +104,6 @@ void empilhar(Pilha *p, Peca nova) {
     p->itens[p->topo] = nova;
 }
 
-// Renomeado de 'remover' para 'desempilhar'
 int desempilhar(Pilha *p, Peca *removida) {
     if (pilhaVazia(p)) {
         printf("Pilha de reserva vazia. Não é possível remover.\n");
@@ -130,7 +126,7 @@ void mostrarPilha(Pilha *p) {
     printf("------------------\n");
 }
 
-// --- Função do Jogo ---
+// --- Funções do Jogo ---
 
 // Nova função para gerar peças automaticamente
 Peca gerarPeca() {
@@ -141,12 +137,61 @@ Peca gerarPeca() {
     return nova;
 }
 
+// NOVA FUNÇÃO: Troca a peça da frente da fila com o topo da pilha
+void trocarPecaAtual(Fila *f, Pilha *p) {
+    if (filaVazia(f)) {
+        printf("\n>>> ERRO: Fila vazia! Não pode trocar.\n");
+        return;
+    }
+    if (pilhaVazia(p)) {
+        printf("\n>>> ERRO: Pilha vazia! Não pode trocar.\n");
+        return;
+    }
+
+    // Realiza a troca
+    Peca temp = p->itens[p->topo];
+    p->itens[p->topo] = f->itens[f->inicio];
+    f->itens[f->inicio] = temp;
+
+    printf("\n>>> AÇÃO: Peça [%c, %d] (Fila) TROCADA com [%c, %d] (Pilha).\n", 
+           p->itens[p->topo].nome, p->itens[p->topo].id, 
+           f->itens[f->inicio].nome, f->itens[f->inicio].id);
+}
+
+// NOVA FUNÇÃO: Troca as 3 primeiras da fila com as 3 do topo da pilha
+void trocaMultipla(Fila *f, Pilha *p) {
+    // Verifica se há peças suficientes
+    if (f->total < 3) {
+        printf("\n>>> ERRO: Fila não tem 3 peças! (%d/3)\n", f->total);
+        return;
+    }
+    // p->topo é 0-indexado, topo 2 = 3 peças (0, 1, 2)
+    if (p->topo < 2) { 
+        printf("\n>>> ERRO: Pilha não tem 3 peças! (%d/3)\n", p->topo + 1);
+        return;
+    }
+
+    // Realiza a troca de 3 peças
+    for (int i = 0; i < 3; i++) {
+        int fila_idx = (f->inicio + i) % MAX_FILA; // Índice circular da fila
+        int pilha_idx = p->topo - i;            // Índice linear da pilha
+
+        Peca temp = p->itens[pilha_idx];
+        p->itens[pilha_idx] = f->itens[fila_idx];
+        f->itens[fila_idx] = temp;
+    }
+
+    printf("\n>>> AÇÃO: 3 peças da Fila trocadas com 3 peças da Pilha.\n");
+}
+
+
 // Função principal com a lógica do jogo
 int main() {
     Fila f;
     Pilha p;
     int numero;
     int acaoRealizada = 0; // Flag para controlar geração de nova peça
+    int mostrarEstado = 1; // Flag para controlar exibição do estado
 
     // Inicializa o gerador de números aleatórios
     srand(time(NULL));
@@ -161,22 +206,26 @@ int main() {
         enfileirar(&f, gerarPeca());
     }
 
-    do {
-        // 6. Exibe o estado atual
-        printf("\n--- ESTADO ATUAL ---\n");
-        mostrarFila(&f);
-        mostrarPilha(&p);
-        printf("----------------------\n");
+    // Mostra o estado inicial
+    printf("\n--- ESTADO INICIAL ---\n");
+    mostrarFila(&f);
+    mostrarPilha(&p);
+    printf("----------------------\n");
 
-        printf("Escolha sua ação:\n");
+    do {
+        printf("\nEscolha sua ação:\n");
         printf("1. Jogar peça (remove da fila)\n");
         printf("2. Reservar peça (fila -> pilha)\n");
         printf("3. Usar peça reservada (remove da pilha)\n");
+        printf("4. Trocar peça atual (fila <-> pilha)\n");
+        printf("5. Troca múltipla (3 fila <-> 3 pilha)\n");
+        printf("6. Visualizar estado atual\n");
         printf("0. Sair\n");
         printf("Opção: ");
         scanf("%d", &numero);
 
         acaoRealizada = 0; // Reseta a flag
+        mostrarEstado = 1; // Mostra o estado por padrão
         Peca pecaTemp;
 
         switch (numero) {
@@ -184,7 +233,7 @@ int main() {
                 // 3. Jogar uma peça
                 if (desenfileirar(&f, &pecaTemp)) {
                     printf("\n>>> AÇÃO: Peça [%c, %d] JOGADA.\n", pecaTemp.nome, pecaTemp.id);
-                    acaoRealizada = 1;
+                    acaoRealizada = 1; // Fila diminuiu, precisa gerar nova peça
                 }
                 break;
 
@@ -195,11 +244,10 @@ int main() {
                 } else if (filaVazia(&f)) {
                      printf("\n>>> ERRO: Fila está vazia! Não pode reservar.\n");
                 } else {
-                    // Tira da fila e coloca na pilha
                     desenfileirar(&f, &pecaTemp);
                     empilhar(&p, pecaTemp);
                     printf("\n>>> AÇÃO: Peça [%c, %d] RESERVADA.\n", pecaTemp.nome, pecaTemp.id);
-                    acaoRealizada = 1;
+                    acaoRealizada = 1; // Fila diminuiu, precisa gerar nova peça
                 }
                 break;
 
@@ -207,24 +255,49 @@ int main() {
                 // 5. Usar uma peça reservada
                 if (desempilhar(&p, &pecaTemp)) {
                     printf("\n>>> AÇÃO: Peça reservada [%c, %d] USADA.\n", pecaTemp.nome, pecaTemp.id);
-                    acaoRealizada = 1;
+                    // Não gera nova peça, pois a fila não foi alterada
                 }
+                break;
+
+            case 4:
+                // NOVA AÇÃO: Trocar peça atual
+                trocarPecaAtual(&f, &p);
+                break;
+            
+            case 5:
+                // NOVA AÇÃO: Troca múltipla
+                trocaMultipla(&f, &p);
+                break;
+
+            case 6:
+                // NOVA AÇÃO: Apenas visualizar
+                printf("\n>>> VISUALIZANDO ESTADO ATUAL.\n");
                 break;
 
             case 0:
                 printf("Saindo do jogo...\n");
+                mostrarEstado = 0; // Não mostrar o estado final
                 break;
 
             default:
                 printf("Opção inválida. Tente novamente.\n");
+                mostrarEstado = 0; // Não mostrar estado se a opção for inválida
                 break;
         }
 
-        // 8. Gera uma nova peça após cada ação válida, mantendo a fila cheia
+        // Gera uma nova peça APENAS se a fila diminuiu (Jogar ou Reservar)
         if (acaoRealizada) {
             Peca nova = gerarPeca();
             printf("... Nova peça [%c, %d] gerada e adicionada ao final da fila.\n", nova.nome, nova.id);
             enfileirar(&f, nova);
+        }
+
+        // Exibe o estado atual após a ação
+        if (mostrarEstado) {
+            printf("\n--- ESTADO ATUAL ---\n");
+            mostrarFila(&f);
+            mostrarPilha(&p);
+            printf("----------------------\n");
         }
 
     } while (numero != 0);
